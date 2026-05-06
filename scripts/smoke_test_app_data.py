@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+APP_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = APP_DIR
+sys.path.insert(0, str(APP_DIR))
+
+from utils.load_data import load_app_data  # noqa: E402
+from utils.transforms import build_current_target_long, build_current_target_wide  # noqa: E402
+
+
+def fail(message: str) -> None:
+    print(f"FAIL: {message}")
+    raise SystemExit(1)
+
+
+def main() -> None:
+    app_data = load_app_data(PROJECT_ROOT)
+    master = app_data["master"]
+    targets = app_data["outputs"].get("molp_targets")
+
+    if len(master["supplier"].dropna().unique()) != 12:
+        fail(f"expected 12 suppliers, found {len(master['supplier'].dropna().unique())}")
+    required_target_columns = {"supplier", "scenario", "theta", "target_price", "target_late_pct", "target_error_pct", "target_lead_days", "target_quality_score", "target_purchase"}
+    missing = required_target_columns.difference(targets.columns)
+    if missing:
+        fail(f"molp_targets.csv missing columns {sorted(missing)}")
+
+    inefficient = master[pd_to_numeric(master["ccr_efficiency"]) < 0.999]["supplier"].astype(str).tolist()
+    if not inefficient:
+        fail("no CCR-inefficient suppliers found")
+    supplier = "L" if "L" in inefficient else inefficient[0]
+    scenario = "balanced_improvement"
+    target_rows = targets[(targets["supplier"] == supplier) & (targets["scenario"] == scenario)]
+    if target_rows.empty:
+        fail(f"no target rows for inefficient supplier {supplier} under {scenario}")
+
+    wide = build_current_target_wide(master, targets, supplier, scenario)
+    long = build_current_target_long(master, targets, supplier, scenario)
+    if wide.empty or len(wide) < 6:
+        fail(f"wide chart data is empty or incomplete for supplier {supplier}")
+    if long.empty or set(long["State"]) != {"Current", "Target"}:
+        fail(f"long chart data is empty or has wrong states for supplier {supplier}")
+
+    radar_metrics = {"Price", "Late Delivery", "Shipping Error", "Lead Time", "Product Quality", "Customer Service Overlay", "Purchase"}
+    if not radar_metrics.issubset(set(long["Metric"])):
+        fail(f"radar metric data is incomplete for supplier {supplier}")
+    if long["Score"].isna().all():
+        fail(f"radar scores are all missing for supplier {supplier}")
+    target_rows_for_chart = long[long["State"].isin(["Current", "Target"])]
+    if target_rows_for_chart.empty or target_rows_for_chart["Score"].isna().all():
+        fail(f"selected scenario target chart data is empty for supplier {supplier}")
+
+    efficient = master[pd_to_numeric(master["ccr_efficiency"]) >= 0.999]["supplier"].astype(str).tolist()
+    if not efficient:
+        fail("no CCR-efficient benchmark suppliers found")
+
+    print(
+        "PASS: app data has 12 suppliers, required target columns, non-empty inefficient-supplier targets, "
+        "non-empty radar data, and non-empty selected-scenario target chart data."
+    )
+
+
+def pd_to_numeric(series):
+    import pandas as pd
+
+    return pd.to_numeric(series, errors="coerce")
+
+
+if __name__ == "__main__":
+    main()
