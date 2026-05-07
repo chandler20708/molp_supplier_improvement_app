@@ -43,7 +43,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-h1, h2, h3, h4 = st.columns([1.1, 1.1, 1.1, 1.3])
+h1, h2, h3, h4 = st.columns([1.3, 1.1, 1.1, 1.1])
 h1.metric("Portfolio status", current.get("portfolio_status", "—"))
 h2.metric("CCR efficiency", format_number(current.get("ccr_efficiency"), 3))
 h3.metric("Product quality", format_number(current.get("product_quality_score"), 3))
