@@ -96,10 +96,10 @@ Shows:
 
 Answers two stakeholder questions with precomputed MOLP outputs:
 
-1. **Base case** — under the Balanced scenario, what each CCR-inefficient supplier should improve and by how much.
-2. **Scenario interpretation** — for each predefined scenario, which inefficient supplier has the largest weighted normalised development burden, which criterion drives it, and what management should do next.
+1. **Baseline potential** — among CCR-inefficient suppliers, who is closest to the DEA efficient frontier.
+2. **Scenario potential** — for each predefined scenario, which inefficient suppliers have the lowest theta, with CCR efficiency used as tie-breaker, and what their biggest actionable improvement gap is.
 
-The Scenario story tab has a scenario selector, a prominent management read-out, and burden charts. Selected-supplier charts and live custom MOLP remain secondary tabs rather than the main page content.
+The Scenario story tab has a scenario selector, a prominent management read-out, and potential/gap visuals. Selected-supplier charts and live custom MOLP remain secondary tabs rather than the main page content.
 
 Live custom optimisation requires:
 

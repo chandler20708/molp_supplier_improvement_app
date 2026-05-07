@@ -48,6 +48,32 @@ SCENARIO_WEIGHTS = {
     },
 }
 
+IMPROVEMENT_LABELS = {
+    "price_improvement": "Price",
+    "late_improvement": "Late delivery",
+    "error_improvement": "Shipping errors",
+    "lead_improvement": "Lead time",
+    "quality_gain": "Product quality",
+}
+
+IMPROVEMENT_METRICS = {
+    "price_improvement": "Price",
+    "late_improvement": "Late Delivery",
+    "error_improvement": "Shipping Error",
+    "lead_improvement": "Lead Time",
+    "quality_gain": "Product Quality",
+}
+
+REAL_UNIT_LABELS = {
+    "price_improvement": "$",
+    "late_improvement": "pp",
+    "error_improvement": "pp",
+    "lead_improvement": "days",
+    "quality_gain": "score",
+}
+
+IMPROVEMENT_COLS = list(IMPROVEMENT_LABELS)
+
 LOWER_IS_BETTER = {
     "Price": ("avg_unit_price", "target_price"),
     "Late Delivery": ("late_delivery_pct", "target_late_pct"),
@@ -218,6 +244,124 @@ def inefficient_suppliers(master_df: pd.DataFrame) -> list[str]:
         return []
     rows = master_df[pd.to_numeric(master_df["ccr_efficiency"], errors="coerce") < 0.999]
     return sorted(rows["supplier"].dropna().astype(str).unique().tolist())
+
+
+def build_baseline_potential_table(master_df: pd.DataFrame, targets_df: pd.DataFrame) -> pd.DataFrame:
+    suppliers = inefficient_suppliers(master_df)
+    if not suppliers:
+        return pd.DataFrame()
+    rows = master_df[master_df["supplier"].isin(suppliers)].copy()
+    rows["ccr_efficiency"] = pd.to_numeric(rows["ccr_efficiency"], errors="coerce")
+    rows["Frontier gap"] = 1.0 - rows["ccr_efficiency"]
+    theta = targets_df[targets_df["supplier"].isin(suppliers)].copy() if targets_df is not None and not targets_df.empty else pd.DataFrame()
+    if not theta.empty:
+        theta["theta"] = pd.to_numeric(theta["theta"], errors="coerce")
+        theta_summary = theta.groupby("supplier", as_index=False)["theta"].mean().rename(columns={"theta": "Mean theta"})
+        rows = rows.merge(theta_summary, on="supplier", how="left")
+    else:
+        rows["Mean theta"] = pd.NA
+    rows = rows.sort_values(["ccr_efficiency", "Mean theta", "supplier"], ascending=[False, True, True]).reset_index(drop=True)
+    rows["Baseline potential rank"] = range(1, len(rows) + 1)
+    return rows.rename(
+        columns={
+            "supplier": "Supplier",
+            "ccr_efficiency": "CCR efficiency",
+            "portfolio_status": "Portfolio status",
+            "product_quality_score": "Product quality",
+            "customer_service_score": "Customer service overlay",
+        }
+    )[
+        [
+            "Baseline potential rank",
+            "Supplier",
+            "CCR efficiency",
+            "Frontier gap",
+            "Mean theta",
+            "Product quality",
+            "Customer service overlay",
+            "Portfolio status",
+        ]
+    ]
+
+
+def _safe_norm(value: float, denom: float) -> float:
+    if abs(denom) <= 1e-12:
+        return 0.0
+    return max(0.0, value / denom)
+
+
+def build_scenario_potential_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, scenario: str, top_n: int = 3) -> pd.DataFrame:
+    suppliers = inefficient_suppliers(master_df)
+    if not suppliers or targets_df is None or targets_df.empty:
+        return pd.DataFrame()
+    rows = targets_df[(targets_df["supplier"].isin(suppliers)) & (targets_df["scenario"] == scenario)].copy()
+    if rows.empty:
+        return pd.DataFrame()
+    if "ccr_efficiency" not in rows.columns:
+        rows = rows.merge(master_df[["supplier", "ccr_efficiency"]], on="supplier", how="left")
+    for col in ["theta", "ccr_efficiency", *IMPROVEMENT_COLS]:
+        if col in rows.columns:
+            rows[col] = pd.to_numeric(rows[col], errors="coerce")
+
+    maxima = {col: max(float(rows[col].max(skipna=True) or 0.0), 1.0) for col in IMPROVEMENT_COLS}
+    out_rows: list[dict[str, object]] = []
+    for _, row in rows.iterrows():
+        norm_gaps = {col: _safe_norm(float(row.get(col) or 0.0), maxima[col]) for col in IMPROVEMENT_COLS}
+        biggest_col = max(norm_gaps, key=norm_gaps.get)
+        out_rows.append(
+            {
+                "Supplier": row["supplier"],
+                "CCR efficiency": float(row["ccr_efficiency"]),
+                "Frontier gap": 1.0 - float(row["ccr_efficiency"]),
+                "Theta": float(row["theta"]),
+                "Biggest improvement gap": IMPROVEMENT_LABELS[biggest_col],
+                "Biggest gap column": biggest_col,
+                "Biggest gap real": float(row.get(biggest_col) or 0.0),
+                "Biggest gap unit": REAL_UNIT_LABELS[biggest_col],
+                "Biggest gap normalised": norm_gaps[biggest_col],
+                "Price improvement": float(row.get("price_improvement") or 0.0),
+                "Late-delivery improvement": float(row.get("late_improvement") or 0.0),
+                "Shipping-error improvement": float(row.get("error_improvement") or 0.0),
+                "Lead-time improvement": float(row.get("lead_improvement") or 0.0),
+                "Product-quality gain": float(row.get("quality_gain") or 0.0),
+                "norm_price_improvement": norm_gaps["price_improvement"],
+                "norm_late_improvement": norm_gaps["late_improvement"],
+                "norm_error_improvement": norm_gaps["error_improvement"],
+                "norm_lead_improvement": norm_gaps["lead_improvement"],
+                "norm_quality_gain": norm_gaps["quality_gain"],
+            }
+        )
+    out = pd.DataFrame(out_rows).sort_values(["Theta", "CCR efficiency", "Supplier"], ascending=[True, False, True]).reset_index(drop=True)
+    out["Scenario potential rank"] = range(1, len(out) + 1)
+    out["Top potential"] = out["Scenario potential rank"] <= top_n
+    return out
+
+
+def build_scenario_potential_summary(master_df: pd.DataFrame, targets_df: pd.DataFrame, top_n: int = 3) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for scenario in SCENARIO_DISPLAY_ORDER:
+        table = build_scenario_potential_table(master_df, targets_df, scenario, top_n=top_n)
+        if table.empty:
+            continue
+        lead = table.iloc[0]
+        rows.append(
+            {
+                "Scenario": SCENARIO_NAMES.get(scenario, scenario),
+                "Scenario key": scenario,
+                "Top potential supplier": lead["Supplier"],
+                "Theta": lead["Theta"],
+                "CCR efficiency": lead["CCR efficiency"],
+                "Frontier gap": lead["Frontier gap"],
+                "Biggest improvement gap": lead["Biggest improvement gap"],
+                "Real-unit action": f"{lead['Biggest gap real']:.3f} {lead['Biggest gap unit']}",
+                "Managerial interpretation": (
+                    f"Supplier {lead['Supplier']} has the strongest development potential under the "
+                    f"{SCENARIO_NAMES.get(scenario, scenario)} scenario because it has the lowest theta among inefficient suppliers; "
+                    f"the first capability gap to discuss is {lead['Biggest improvement gap']}."
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def _dominant_peer(peer_weights_df: pd.DataFrame, supplier: str, scenario: str) -> str:

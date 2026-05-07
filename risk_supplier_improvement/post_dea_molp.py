@@ -606,6 +606,10 @@ def solutions_to_frames(solutions: list[PostDEASolution]) -> tuple[pl.DataFrame,
                 if criterion.is_desirable
                 else current_value - target_value
             )
+        row["total_real_improvement"] = sum(
+            float(row[criterion.improvement_key])
+            for criterion in CRITERIA
+        )
         row["purchase_gain"] = solution.target_metrics["target_purchase"] - solution.current_metrics["current_purchase"]
         target_rows.append(row)
 

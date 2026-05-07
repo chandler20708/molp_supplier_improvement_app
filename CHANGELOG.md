@@ -27,6 +27,23 @@
 - `/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 scripts/smoke_test_app_data.py` passed from the app root.
 - `/Library/Frameworks/Python.framework/Versions/3.11/bin/streamlit run app.py --server.headless true --server.port 8561` started successfully and was stopped after verification.
 
+## 2026-05-07 — Potential Analysis Layer
+
+### Changed
+
+- Synced the app Scenario Interpretation page to the new potential definitions.
+- Baseline potential now ranks CCR-inefficient suppliers by closeness to the DEA frontier: higher CCR efficiency and smaller frontier gap.
+- Scenario potential now ranks CCR-inefficient suppliers by lowest theta, with CCR efficiency as the tie-breaker.
+- Biggest improvement gap is selected using normalised gap size and reported in original business units.
+- Added `risk_supplier_improvement/potential_analysis.py` to the deployable app package for consistency with the source modelling package.
+- Added `total_real_improvement` as a derived output field in `risk_supplier_improvement/post_dea_molp.py`; this is a rough exported indicator, not the main potential ranking metric.
+
+### Validation
+
+- `./../.venv/bin/python -m compileall .` passed from the app root.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 scripts/smoke_test_app_data.py` passed from the app root.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/streamlit run app.py --server.headless true --server.port 8561` started successfully and was stopped after verification.
+
 ### Remaining Limitations
 
 - Weighted normalised improvement burden is an interpretation layer based on precomputed target movements and scenario weights; it is not a new optimisation model.

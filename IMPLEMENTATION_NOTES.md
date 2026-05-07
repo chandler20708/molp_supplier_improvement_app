@@ -40,7 +40,9 @@ Deploy this folder as the repository root and use `app.py` as the Streamlit entr
 - Treat customer service as a strategic overlay and purchase as commercial scale/context.
 - Do not describe theta as DEA efficiency or peer weights as probabilities/order shares.
 - CCR-efficient suppliers should be presented as benchmark/monitoring cases, not as suppliers needing the same target-improvement plan as inefficient suppliers.
-- Scenario interpretation should prioritise CCR-inefficient supplier-development needs, weighted normalised improvement burden, driving criterion, and benchmark-peer learning.
-- Visuals on the Scenario page should show cross-supplier burden and driving-criterion contribution before detailed supplier charts.
+- Baseline potential should rank CCR-inefficient suppliers by CCR efficiency descending, i.e. smallest frontier gap first.
+- Scenario potential should rank CCR-inefficient suppliers by theta ascending, with CCR efficiency as tie-breaker.
+- Biggest improvement gap should be selected by normalised gap size, then reported in original business units.
+- Visuals on the Scenario page should show potential and biggest capability gap before detailed supplier charts.
 - The Deep Dive improvement table uses `Styler.map` when available and falls back to `Styler.applymap` for older pandas versions.
 - Run `streamlit_mvp_app/scripts/smoke_test_app_data.py` after chart-data changes.

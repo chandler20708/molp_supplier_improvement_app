@@ -10,10 +10,11 @@ sys.path.insert(0, str(APP_DIR))
 
 from utils.load_data import load_app_data  # noqa: E402
 from utils.transforms import (  # noqa: E402
-    build_balanced_base_case_table,
+    build_baseline_potential_table,
     build_current_target_long,
     build_current_target_wide,
-    build_scenario_interpretation_table,
+    build_scenario_potential_summary,
+    build_scenario_potential_table,
 )
 
 
@@ -63,20 +64,22 @@ def main() -> None:
     if not efficient:
         fail("no CCR-efficient benchmark suppliers found")
 
-    peers = app_data["outputs"].get("molp_peer_weights")
-    base_case = build_balanced_base_case_table(master, targets, peers)
-    if base_case.empty or "Development need" not in base_case.columns:
-        fail("balanced base-case interpretation table is empty or incomplete")
-    scenario_summary = build_scenario_interpretation_table(master, targets, peers)
+    baseline = build_baseline_potential_table(master, targets)
+    if baseline.empty or "Baseline potential rank" not in baseline.columns:
+        fail("baseline potential table is empty or incomplete")
+    scenario_table = build_scenario_potential_table(master, targets, "balanced_improvement")
+    if scenario_table.empty or "Scenario potential rank" not in scenario_table.columns:
+        fail("scenario potential table is empty or incomplete")
+    scenario_summary = build_scenario_potential_summary(master, targets)
     if len(scenario_summary) != 4:
-        fail(f"expected 4 scenario interpretation rows, found {len(scenario_summary)}")
-    required_summary = {"Supplier with largest burden", "Driving criterion", "Managerial interpretation"}
+        fail(f"expected 4 scenario potential summary rows, found {len(scenario_summary)}")
+    required_summary = {"Top potential supplier", "Biggest improvement gap", "Managerial interpretation"}
     if missing_summary := required_summary.difference(scenario_summary.columns):
-        fail(f"scenario interpretation table missing columns {sorted(missing_summary)}")
+        fail(f"scenario potential summary missing columns {sorted(missing_summary)}")
 
     print(
         "PASS: app data has 12 suppliers, required target columns, non-empty inefficient-supplier targets, "
-        "non-empty radar data, non-empty selected-scenario target chart data, and scenario interpretation tables."
+        "non-empty radar data, non-empty selected-scenario target chart data, and potential interpretation tables."
     )
 
 
