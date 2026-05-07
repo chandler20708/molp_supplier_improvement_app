@@ -99,7 +99,7 @@ Answers two stakeholder questions with precomputed MOLP outputs:
 1. **Base case** — under the Balanced scenario, what each CCR-inefficient supplier should improve and by how much.
 2. **Scenario interpretation** — for each predefined scenario, which inefficient supplier has the largest weighted normalised development burden, which criterion drives it, and what management should do next.
 
-Selected-supplier charts and live custom MOLP remain optional drill-down tools rather than the main page content.
+The Scenario story tab has a scenario selector, a prominent management read-out, and burden charts. Selected-supplier charts and live custom MOLP remain secondary tabs rather than the main page content.
 
 Live custom optimisation requires:
 

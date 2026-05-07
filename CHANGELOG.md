@@ -25,8 +25,25 @@
 
 - `./../.venv/bin/python -m compileall .` passed from the app root.
 - `/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 scripts/smoke_test_app_data.py` passed from the app root.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/streamlit run app.py --server.headless true --server.port 8561` started successfully and was stopped after verification.
 
 ### Remaining Limitations
 
 - Weighted normalised improvement burden is an interpretation layer based on precomputed target movements and scenario weights; it is not a new optimisation model.
 - Browser-level visual regression testing was not added in this pass.
+
+## 2026-05-07 — Scenario Interpretation Interaction Refinement
+
+### Changed
+
+- Added a scenario selector to the Scenario story section so stakeholders can focus on one predefined scenario at a time.
+- Replaced the previously table-first scenario view with a prominent management read-out card that states the supplier, development burden, driving criterion, benchmark peer, and interpretation.
+- Added cross-supplier burden and driving-criterion contribution bar charts so the page tells the scenario story visually before showing tables.
+- Moved selected-supplier drill-down into a dedicated tab instead of an optional expander.
+- Moved live custom MOLP and method notes into tabs so they remain accessible but secondary.
+- Updated README and implementation notes for the scenario selector, tabbed drill-down, and visual-first scenario story.
+
+### Validation
+
+- `./../.venv/bin/python -m compileall .` passed from the app root.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 scripts/smoke_test_app_data.py` passed from the app root.

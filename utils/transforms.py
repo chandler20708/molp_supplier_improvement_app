@@ -287,41 +287,49 @@ def _managerial_interpretation(supplier: str, scenario: str, criterion: str) -> 
     )
 
 
+def build_supplier_burden_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, peer_weights_df: pd.DataFrame, scenario: str) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for supplier in inefficient_suppliers(master_df):
+        improvement = build_improvement_table(master_df, targets_df, supplier, scenario)
+        if improvement.empty:
+            continue
+        weights = SCENARIO_WEIGHTS.get(scenario, {})
+        criteria = improvement[improvement["Metric"].isin(weights)].copy()
+        if criteria.empty:
+            continue
+        criteria["Weighted room"] = criteria["Metric"].map(weights).fillna(0.0) * pd.to_numeric(criteria["Normalised room"], errors="coerce").clip(lower=0).fillna(0.0)
+        top = criteria.sort_values("Weighted room", ascending=False).iloc[0]
+        rows.append(
+            {
+                "Supplier": supplier,
+                "Weighted normalised improvement burden": float(criteria["Weighted room"].sum()),
+                "Driving criterion": str(top["Metric"]),
+                "Driving-criterion contribution": float(top["Weighted room"]),
+                "Leading benchmark peer": _dominant_peer(peer_weights_df, supplier, scenario),
+                "Managerial interpretation": _managerial_interpretation(supplier, scenario, str(top["Metric"])),
+            }
+        )
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values("Weighted normalised improvement burden", ascending=False).reset_index(drop=True)
+
+
 def build_scenario_interpretation_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, peer_weights_df: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
-    suppliers = inefficient_suppliers(master_df)
     for scenario in SCENARIO_DISPLAY_ORDER:
-        supplier_rows: list[dict[str, object]] = []
-        for supplier in suppliers:
-            improvement = build_improvement_table(master_df, targets_df, supplier, scenario)
-            if improvement.empty:
-                continue
-            weights = SCENARIO_WEIGHTS.get(scenario, {})
-            criteria = improvement[improvement["Metric"].isin(weights)].copy()
-            criteria["Weighted room"] = criteria["Metric"].map(weights).fillna(0.0) * pd.to_numeric(criteria["Normalised room"], errors="coerce").clip(lower=0).fillna(0.0)
-            total_burden = float(criteria["Weighted room"].sum())
-            top = criteria.sort_values("Weighted room", ascending=False).iloc[0] if not criteria.empty else None
-            supplier_rows.append(
-                {
-                    "supplier": supplier,
-                    "total_burden": total_burden,
-                    "driving_criterion": str(top["Metric"]) if top is not None else "No target movement",
-                    "criterion_burden": float(top["Weighted room"]) if top is not None else 0.0,
-                    "peer": _dominant_peer(peer_weights_df, supplier, scenario),
-                }
-            )
-        if not supplier_rows:
+        supplier_rows = build_supplier_burden_table(master_df, targets_df, peer_weights_df, scenario)
+        if supplier_rows.empty:
             continue
-        selected = pd.DataFrame(supplier_rows).sort_values("total_burden", ascending=False).iloc[0]
+        selected = supplier_rows.iloc[0]
         rows.append(
             {
                 "Scenario": SCENARIO_NAMES.get(scenario, scenario),
-                "Supplier with largest burden": selected["supplier"],
-                "Weighted normalised improvement burden": selected["total_burden"],
-                "Driving criterion": selected["driving_criterion"],
-                "Driving-criterion contribution": selected["criterion_burden"],
-                "Leading benchmark peer": selected["peer"],
-                "Managerial interpretation": _managerial_interpretation(str(selected["supplier"]), scenario, str(selected["driving_criterion"])),
+                "Supplier with largest burden": selected["Supplier"],
+                "Weighted normalised improvement burden": selected["Weighted normalised improvement burden"],
+                "Driving criterion": selected["Driving criterion"],
+                "Driving-criterion contribution": selected["Driving-criterion contribution"],
+                "Leading benchmark peer": selected["Leading benchmark peer"],
+                "Managerial interpretation": selected["Managerial interpretation"],
             }
         )
     return pd.DataFrame(rows)
