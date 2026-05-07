@@ -183,11 +183,11 @@ else:
                 scenario_display[col] = pd.to_numeric(scenario_display[col], errors="coerce").map(lambda x: "—" if pd.isna(x) else f"{x:.2f}")
             st.dataframe(scenario_display, width="stretch", hide_index=True)
 
-        st.markdown("#### Four-scenario summary")
-        cards = st.columns(4)
+        st.sidebar.markdown("#### Four-scenario summary")
+        cards = st.sidebar.columns(4)
         for idx, row in scenario_summary.iterrows():
             with cards[idx % 4]:
-                st.markdown(
+                st.sidebar.markdown(
                     f"""
                     <div class="flow-card">
                     <b>{row['Scenario']}</b><br>
