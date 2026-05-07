@@ -33,7 +33,7 @@ def portfolio_matrix_3d(master_df: pd.DataFrame) -> go.Figure:
         "Development candidate": "#d97706",
         "Selective development": "#f59e0b",
         "Tactical efficient": "#64748b",
-        "Deprioritise / renegotiate": "#dc2626",
+        "Deprioritise": "#dc2626",
     }
     for trace in fig.data:
         if trace.name in palette:
