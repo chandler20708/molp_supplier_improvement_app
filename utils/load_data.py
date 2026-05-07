@@ -158,7 +158,7 @@ def classify_portfolio_status(
         return "Selective development"
     if not mixed_mcda and high_dea:
         return "Tactical efficient"
-    return "Deprioritise / renegotiate"
+    return "Deprioritise"
 
 
 def build_supplier_master(inputs: Dict[str, pd.DataFrame], outputs: Dict[str, pd.DataFrame]) -> pd.DataFrame:
