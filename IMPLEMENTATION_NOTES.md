@@ -21,7 +21,7 @@ It constructs CCR-efficient peers from `dea_team_ccr_efficiency.csv`, normalises
 
 ## Standalone GitHub deployment
 
-The `streamlit_mvp_app/` folder is now self-contained for GitHub / Streamlit Community Cloud deployment. It includes:
+The `molp_supplier_improvement_app/` folder is now self-contained for GitHub / Streamlit Community Cloud deployment. It includes:
 
 - `data/` with imported MCDA and DEA input CSVs.
 - `outputs/team_ccr/` with precomputed MOLP targets, peer weights, payoff, and sensitivity CSVs.
@@ -40,9 +40,11 @@ Deploy this folder as the repository root and use `app.py` as the Streamlit entr
 - Treat customer service as a strategic overlay and purchase as commercial scale/context.
 - Do not describe theta as DEA efficiency or peer weights as probabilities/order shares.
 - CCR-efficient suppliers should be presented as benchmark/monitoring cases, not as suppliers needing the same target-improvement plan as inefficient suppliers.
-- Baseline potential should rank CCR-inefficient suppliers by CCR efficiency descending, i.e. smallest frontier gap first.
-- Scenario potential should rank CCR-inefficient suppliers by theta ascending, with CCR efficiency as tie-breaker.
-- Biggest improvement gap should be selected by normalised gap size, then reported in original business units.
+- Supplier development potential should rank CCR-inefficient suppliers by unweighted normalised MOLP target distance ascending.
+- Baseline potential should use the Balanced scenario target distance.
+- Scenario potential should use the selected scenario target distance.
+- Theta should be shown only as the MOLP compromise-target quality indicator; CCR efficiency should be shown only as contextual DEA information.
+- Biggest improvement gap should be selected by the largest unweighted normalised criterion gap, then reported in original business units.
 - Visuals on the Scenario page should show potential and biggest capability gap before detailed supplier charts.
 - The Deep Dive improvement table uses `Styler.map` when available and falls back to `Styler.applymap` for older pandas versions.
-- Run `streamlit_mvp_app/scripts/smoke_test_app_data.py` after chart-data changes.
+- Run `molp_supplier_improvement_app/scripts/smoke_test_app_data.py` after chart-data changes.

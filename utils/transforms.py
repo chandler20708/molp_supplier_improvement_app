@@ -247,36 +247,31 @@ def inefficient_suppliers(master_df: pd.DataFrame) -> list[str]:
 
 
 def build_baseline_potential_table(master_df: pd.DataFrame, targets_df: pd.DataFrame) -> pd.DataFrame:
-    suppliers = inefficient_suppliers(master_df)
-    if not suppliers:
+    balanced = build_scenario_potential_table(master_df, targets_df, "balanced_improvement")
+    if balanced.empty:
         return pd.DataFrame()
-    rows = master_df[master_df["supplier"].isin(suppliers)].copy()
-    rows["ccr_efficiency"] = pd.to_numeric(rows["ccr_efficiency"], errors="coerce")
-    rows["Frontier gap"] = 1.0 - rows["ccr_efficiency"]
-    theta = targets_df[targets_df["supplier"].isin(suppliers)].copy() if targets_df is not None and not targets_df.empty else pd.DataFrame()
-    if not theta.empty:
-        theta["theta"] = pd.to_numeric(theta["theta"], errors="coerce")
-        theta_summary = theta.groupby("supplier", as_index=False)["theta"].mean().rename(columns={"theta": "Mean theta"})
-        rows = rows.merge(theta_summary, on="supplier", how="left")
-    else:
-        rows["Mean theta"] = pd.NA
-    rows = rows.sort_values(["ccr_efficiency", "Mean theta", "supplier"], ascending=[False, True, True]).reset_index(drop=True)
-    rows["Baseline potential rank"] = range(1, len(rows) + 1)
-    return rows.rename(
+    context = master_df.rename(
         columns={
             "supplier": "Supplier",
-            "ccr_efficiency": "CCR efficiency",
             "portfolio_status": "Portfolio status",
             "product_quality_score": "Product quality",
             "customer_service_score": "Customer service overlay",
         }
-    )[
+    )[["Supplier", "Portfolio status", "Product quality", "Customer service overlay"]]
+    out = balanced.merge(context, on="Supplier", how="left")
+    out = out.rename(columns={"Scenario potential rank": "Baseline potential rank"})
+    return out[
         [
             "Baseline potential rank",
             "Supplier",
+            "MOLP target distance",
+            "Theta",
             "CCR efficiency",
             "Frontier gap",
-            "Mean theta",
+            "Bottleneck criterion",
+            "Bottleneck gap",
+            "Biggest gap real",
+            "Biggest gap unit",
             "Product quality",
             "Customer service overlay",
             "Portfolio status",
@@ -284,10 +279,29 @@ def build_baseline_potential_table(master_df: pd.DataFrame, targets_df: pd.DataF
     ]
 
 
-def _safe_norm(value: float, denom: float) -> float:
+def _safe_ratio(value: float, denom: float) -> float:
     if abs(denom) <= 1e-12:
         return 0.0
     return max(0.0, value / denom)
+
+
+GAP_SPECS = {
+    "price_improvement": ("current_price", "target_price", "min", "norm_price_gap"),
+    "late_improvement": ("current_late_pct", "target_late_pct", "min", "norm_late_gap"),
+    "error_improvement": ("current_error_pct", "target_error_pct", "min", "norm_error_gap"),
+    "lead_improvement": ("current_lead_days", "target_lead_days", "min", "norm_lead_gap"),
+    "quality_gain": ("current_quality_score", "target_quality_score", "max", "norm_quality_gap"),
+}
+
+
+def _target_distance_gaps(row: pd.Series) -> dict[str, float]:
+    gaps: dict[str, float] = {}
+    for improvement_col, (current_col, target_col, sense, _norm_col) in GAP_SPECS.items():
+        current = float(row.get(current_col) or 0.0)
+        target = float(row.get(target_col) or 0.0)
+        raw_gap = current - target if sense == "min" else target - current
+        gaps[improvement_col] = _safe_ratio(raw_gap, current)
+    return gaps
 
 
 def build_scenario_potential_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, scenario: str, top_n: int = 3) -> pd.DataFrame:
@@ -303,17 +317,21 @@ def build_scenario_potential_table(master_df: pd.DataFrame, targets_df: pd.DataF
         if col in rows.columns:
             rows[col] = pd.to_numeric(rows[col], errors="coerce")
 
-    maxima = {col: max(float(rows[col].max(skipna=True) or 0.0), 1.0) for col in IMPROVEMENT_COLS}
     out_rows: list[dict[str, object]] = []
     for _, row in rows.iterrows():
-        norm_gaps = {col: _safe_norm(float(row.get(col) or 0.0), maxima[col]) for col in IMPROVEMENT_COLS}
+        norm_gaps = _target_distance_gaps(row)
         biggest_col = max(norm_gaps, key=norm_gaps.get)
+        molp_target_distance = (sum(value ** 2 for value in norm_gaps.values()) / len(norm_gaps)) ** 0.5
         out_rows.append(
             {
                 "Supplier": row["supplier"],
                 "CCR efficiency": float(row["ccr_efficiency"]),
                 "Frontier gap": 1.0 - float(row["ccr_efficiency"]),
                 "Theta": float(row["theta"]),
+                "MOLP target distance": molp_target_distance,
+                "molp_target_distance": molp_target_distance,
+                "Bottleneck gap": norm_gaps[biggest_col],
+                "Bottleneck criterion": IMPROVEMENT_LABELS[biggest_col],
                 "Biggest improvement gap": IMPROVEMENT_LABELS[biggest_col],
                 "Biggest gap column": biggest_col,
                 "Biggest gap real": float(row.get(biggest_col) or 0.0),
@@ -324,15 +342,16 @@ def build_scenario_potential_table(master_df: pd.DataFrame, targets_df: pd.DataF
                 "Shipping-error improvement": float(row.get("error_improvement") or 0.0),
                 "Lead-time improvement": float(row.get("lead_improvement") or 0.0),
                 "Product-quality gain": float(row.get("quality_gain") or 0.0),
-                "norm_price_improvement": norm_gaps["price_improvement"],
-                "norm_late_improvement": norm_gaps["late_improvement"],
-                "norm_error_improvement": norm_gaps["error_improvement"],
-                "norm_lead_improvement": norm_gaps["lead_improvement"],
-                "norm_quality_gain": norm_gaps["quality_gain"],
+                "norm_price_gap": norm_gaps["price_improvement"],
+                "norm_late_gap": norm_gaps["late_improvement"],
+                "norm_error_gap": norm_gaps["error_improvement"],
+                "norm_lead_gap": norm_gaps["lead_improvement"],
+                "norm_quality_gap": norm_gaps["quality_gain"],
             }
         )
-    out = pd.DataFrame(out_rows).sort_values(["Theta", "CCR efficiency", "Supplier"], ascending=[True, False, True]).reset_index(drop=True)
+    out = pd.DataFrame(out_rows).sort_values(["MOLP target distance", "Supplier"], ascending=[True, True]).reset_index(drop=True)
     out["Scenario potential rank"] = range(1, len(out) + 1)
+    out["molp_potential_rank"] = out["Scenario potential rank"]
     out["Top potential"] = out["Scenario potential rank"] <= top_n
     return out
 
@@ -349,15 +368,18 @@ def build_scenario_potential_summary(master_df: pd.DataFrame, targets_df: pd.Dat
                 "Scenario": SCENARIO_NAMES.get(scenario, scenario),
                 "Scenario key": scenario,
                 "Top potential supplier": lead["Supplier"],
+                "MOLP target distance": lead["MOLP target distance"],
                 "Theta": lead["Theta"],
                 "CCR efficiency": lead["CCR efficiency"],
                 "Frontier gap": lead["Frontier gap"],
+                "Bottleneck criterion": lead["Bottleneck criterion"],
+                "Bottleneck gap": lead["Bottleneck gap"],
                 "Biggest improvement gap": lead["Biggest improvement gap"],
                 "Real-unit action": f"{lead['Biggest gap real']:.3f} {lead['Biggest gap unit']}",
                 "Managerial interpretation": (
                     f"Supplier {lead['Supplier']} has the strongest development potential under the "
-                    f"{SCENARIO_NAMES.get(scenario, scenario)} scenario because it has the lowest theta among inefficient suppliers; "
-                    f"the first capability gap to discuss is {lead['Biggest improvement gap']}."
+                    f"{SCENARIO_NAMES.get(scenario, scenario)} scenario because it has the lowest unweighted normalised MOLP target distance; "
+                    f"the first capability gap to discuss is {lead['Bottleneck criterion']}."
                 ),
             }
         )

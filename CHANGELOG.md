@@ -1,12 +1,31 @@
 # Changelog
 
+## 2026-05-07 — MOLP Target Distance Potential Metric
+
+### Changed
+
+- Updated supplier development potential to use unweighted normalised MOLP target distance `d`, not theta, CCR efficiency, or weighted scenario burden.
+- Added the same post-solve `d` calculation to `solutions_to_frames()` so future MOLP target exports carry supplier potential fields directly.
+- Added/used the derived fields `molp_target_distance`, `molp_potential_rank`, `bottleneck_gap`, `bottleneck_criterion`, and `norm_*_gap` in the app interpretation layer.
+- Updated Scenario Interpretation so top-potential suppliers are selected by the lowest target distance under the selected scenario.
+- Kept scenario weights inside the MOLP target-setting model only; the potential-distance metric is deliberately unweighted.
+- Updated README, implementation notes, smoke checks, and report-output sync language to state that theta is target-quality context and CCR efficiency is DEA context.
+
+### Validation
+
+- `./.venv/bin/python -m compileall risk_supplier_improvement molp_supplier_improvement_app` passed from the modelling project root.
+- `./.venv/bin/python -m risk_supplier_improvement.potential_analysis` regenerated potential outputs.
+- `./.venv/bin/python -m risk_supplier_improvement.generate_report_assets` regenerated report assets.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 scripts/smoke_test_app_data.py` passed from the app root.
+- `/Library/Frameworks/Python.framework/Versions/3.11/bin/streamlit run app.py --server.headless true --server.port 8561` started successfully and was stopped after verification.
+
 ## 2026-05-07 — Scenario Interpretation Refactor
 
 ### Changed
 
 - Refactored page 3 from a selected-supplier Scenario Simulator into a stakeholder-facing Scenario Interpretation page.
-- Added a Balanced base-case table covering all CCR-inefficient suppliers, their main development need, raw improvement amounts, theta, weighted normalised burden, and leading benchmark peer.
-- Added a four-scenario interpretation table showing, for each predefined scenario, the inefficient supplier with the largest weighted normalised improvement burden, the driving criterion, benchmark peer, and managerial interpretation.
+- Added a Balanced base-case table covering all CCR-inefficient suppliers, their main development need, raw improvement amounts, theta context, target distance, and leading benchmark peer.
+- Added a four-scenario interpretation table showing, for each predefined scenario, the inefficient supplier with the lowest unweighted normalised MOLP target distance, the bottleneck criterion, benchmark peer, and managerial interpretation.
 - Kept selected-supplier target charts and radar as an optional drill-down rather than the main page content.
 - Kept live custom MOLP secondary inside an optional expander and only available when the optional optimiser stack is detected.
 - Added transform helpers for inefficient-supplier filtering, base-case summaries, scenario burden summaries, and scenario-specific weighted criterion interpretation.
@@ -32,9 +51,9 @@
 ### Changed
 
 - Synced the app Scenario Interpretation page to the new potential definitions.
-- Baseline potential now ranks CCR-inefficient suppliers by closeness to the DEA frontier: higher CCR efficiency and smaller frontier gap.
-- Scenario potential now ranks CCR-inefficient suppliers by lowest theta, with CCR efficiency as the tie-breaker.
-- Biggest improvement gap is selected using normalised gap size and reported in original business units.
+- Baseline potential now ranks CCR-inefficient suppliers by unweighted normalised MOLP target distance under the Balanced scenario.
+- Scenario potential now ranks CCR-inefficient suppliers by unweighted normalised MOLP target distance under the selected scenario.
+- Bottleneck improvement gap is selected using the largest unweighted normalised criterion gap and reported in original business units.
 - Added `risk_supplier_improvement/potential_analysis.py` to the deployable app package for consistency with the source modelling package.
 - Added `total_real_improvement` as a derived output field in `risk_supplier_improvement/post_dea_molp.py`; this is a rough exported indicator, not the main potential ranking metric.
 
@@ -46,7 +65,6 @@
 
 ### Remaining Limitations
 
-- Weighted normalised improvement burden is an interpretation layer based on precomputed target movements and scenario weights; it is not a new optimisation model.
 - Browser-level visual regression testing was not added in this pass.
 
 ## 2026-05-07 — Scenario Interpretation Interaction Refinement

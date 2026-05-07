@@ -45,6 +45,8 @@ st.markdown(
 st.markdown(
     """
     <div class="muted-box">
+    Supplier development potential is measured by the unweighted normalised distance between current performance and the scenario-specific MOLP target. Lower distance means less proportional improvement is required.
+    <br>
     The MOLP model is solved using normalised deviations so price, delay, error, lead time and quality can be compared fairly despite different units.
     Recommended improvement actions below are reported in original business units for implementation.
     </div>
@@ -63,8 +65,8 @@ st.subheader("Baseline Development Potential")
 st.markdown(
     """
     <div class="action-box">
-    <b>Baseline definition:</b> among CCR-inefficient suppliers, higher CCR efficiency means smaller frontier gap and therefore stronger baseline development potential.
-    This is not a supplier replacement ranking.
+    <b>Baseline definition:</b> under the Balanced scenario, higher potential means a lower unweighted normalised MOLP target distance.
+    CCR efficiency and frontier gap are shown as DEA context, not as the potential metric.
     </div>
     """,
     unsafe_allow_html=True,
@@ -74,24 +76,24 @@ if baseline.empty:
     st.info("No CCR-inefficient suppliers were found.")
 else:
     chart_df = baseline.copy()
-    chart_df["Frontier gap"] = pd.to_numeric(chart_df["Frontier gap"], errors="coerce")
+    chart_df["MOLP target distance"] = pd.to_numeric(chart_df["MOLP target distance"], errors="coerce")
     frontier_chart = px.bar(
-        chart_df.sort_values("Frontier gap", ascending=False),
-        x="Frontier gap",
+        chart_df.sort_values("MOLP target distance", ascending=False),
+        x="MOLP target distance",
         y="Supplier",
         orientation="h",
-        text="Frontier gap",
-        hover_data=["CCR efficiency", "Mean theta", "Portfolio status"],
-        title="Baseline potential: smaller frontier gap means closer to the efficient frontier",
+        text="MOLP target distance",
+        hover_data=["Theta", "CCR efficiency", "Frontier gap", "Bottleneck criterion", "Portfolio status"],
+        title="Baseline potential: lower target distance means less proportional improvement required",
     )
     frontier_chart.update_traces(texttemplate="%{text:.3f}", textposition="outside", marker_color="#2563eb")
-    frontier_chart.update_layout(height=360, margin=dict(l=10, r=25, t=45, b=10), xaxis_title="Frontier gap = 1 - CCR efficiency", yaxis_title="")
+    frontier_chart.update_layout(height=360, margin=dict(l=10, r=25, t=45, b=10), xaxis_title="Unweighted normalised MOLP target distance", yaxis_title="")
     left, right = st.columns([1.0, 1.1], gap="large")
     with left:
         st.plotly_chart(frontier_chart, width="stretch")
     with right:
         display = baseline.copy()
-        for col in ["CCR efficiency", "Frontier gap", "Mean theta", "Product quality", "Customer service overlay"]:
+        for col in ["MOLP target distance", "Theta", "CCR efficiency", "Frontier gap", "Bottleneck gap", "Biggest gap real", "Product quality", "Customer service overlay"]:
             display[col] = pd.to_numeric(display[col], errors="coerce").map(lambda x: "—" if pd.isna(x) else f"{x:.3f}")
         st.dataframe(display, width="stretch", hide_index=True)
 
@@ -99,8 +101,8 @@ st.subheader("Scenario-Specific Potential")
 st.markdown(
     """
     <div class="action-box">
-    <b>Scenario definition:</b> under each scenario, the most potential suppliers are the CCR-inefficient suppliers with the lowest theta; CCR efficiency is used as the tie-breaker.
-    The biggest gap is selected using normalised gap size, then reported in original units.
+    <b>Scenario definition:</b> under each scenario, the most potential suppliers are the CCR-inefficient suppliers with the lowest unweighted normalised MOLP target distance.
+    Theta is retained as the MOLP compromise-target quality indicator, and CCR efficiency is retained as DEA context.
     </div>
     """,
     unsafe_allow_html=True,
@@ -125,9 +127,10 @@ with story_tab:
             <div class="action-box">
             <b>{selected_label}: immediate management read-out</b><br>
             Supplier <b>{lead['Supplier']}</b> has the strongest development potential under this scenario
-            because it has the lowest theta among CCR-inefficient suppliers
-            (<b>{float(lead['Theta']):.3f}</b>) and CCR efficiency of <b>{float(lead['CCR efficiency']):.3f}</b>.
-            The first capability gap to discuss is <b>{lead['Biggest improvement gap']}</b>:
+            because it has the lowest unweighted normalised target distance
+            (<b>{float(lead['MOLP target distance']):.3f}</b>).
+            Theta is <b>{float(lead['Theta']):.3f}</b> and CCR efficiency is <b>{float(lead['CCR efficiency']):.3f}</b> for context.
+            The bottleneck capability gap is <b>{lead['Bottleneck criterion']}</b>:
             <b>{float(lead['Biggest gap real']):.3f} {lead['Biggest gap unit']}</b>.
             </div>
             """,
@@ -141,9 +144,10 @@ with story_tab:
                     f"""
                     <div class="flow-card">
                     <b>Rank {int(row['Scenario potential rank'])}: Supplier {row['Supplier']}</b><br>
+                    <span>d: {float(row['MOLP target distance']):.3f}</span><br>
                     <span>Theta: {float(row['Theta']):.3f}</span><br>
                     <span>CCR: {float(row['CCR efficiency']):.3f}</span><br>
-                    <span>Focus: {row['Biggest improvement gap']} ({float(row['Biggest gap real']):.3f} {row['Biggest gap unit']})</span>
+                    <span>Bottleneck: {row['Bottleneck criterion']} ({float(row['Biggest gap real']):.3f} {row['Biggest gap unit']})</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -153,23 +157,23 @@ with story_tab:
         potential_chart_df["Potential label"] = potential_chart_df["Top potential"].map({True: "Top 3 potential", False: "Other development candidate"})
         theta_chart = px.scatter(
             potential_chart_df,
-            x="Theta",
-            y="CCR efficiency",
+            x="MOLP target distance",
+            y="Theta",
             color="Potential label",
-            size="Biggest gap normalised",
+            size="Bottleneck gap",
             text="Supplier",
-            hover_data=["Biggest improvement gap", "Biggest gap real", "Biggest gap unit", "Frontier gap"],
-            title=f"{selected_label}: potential map, lower theta and higher CCR are better",
+            hover_data=["Bottleneck criterion", "Biggest gap real", "Biggest gap unit", "CCR efficiency", "Frontier gap"],
+            title=f"{selected_label}: potential map, lower d means higher development potential",
         )
         theta_chart.update_traces(textposition="top center")
         theta_chart.update_layout(height=420, margin=dict(l=10, r=20, t=45, b=10))
 
         norm_cols = {
-            "norm_price_improvement": "Price",
-            "norm_late_improvement": "Late delivery",
-            "norm_error_improvement": "Shipping errors",
-            "norm_lead_improvement": "Lead time",
-            "norm_quality_gain": "Product quality",
+            "norm_price_gap": "Price",
+            "norm_late_gap": "Late delivery",
+            "norm_error_gap": "Shipping errors",
+            "norm_lead_gap": "Lead time",
+            "norm_quality_gap": "Product quality",
         }
         lead_norm = pd.DataFrame(
             {
@@ -183,7 +187,7 @@ with story_tab:
             y="Criterion",
             orientation="h",
             text="Normalised gap",
-            title=f"Supplier {lead['Supplier']}: biggest normalised capability gap",
+            title=f"Supplier {lead['Supplier']}: bottleneck normalised capability gap",
         )
         gap_chart.update_traces(texttemplate="%{text:.2f}", textposition="outside", marker_color="#2563eb")
         gap_chart.update_layout(height=420, margin=dict(l=10, r=20, t=45, b=10), xaxis_title="Normalised gap", yaxis_title="")
@@ -195,20 +199,21 @@ with story_tab:
             st.plotly_chart(gap_chart, width="stretch")
 
         scenario_display = potential_df.copy()
-        for col in ["CCR efficiency", "Frontier gap", "Theta", "Biggest gap real", "Biggest gap normalised"]:
+        for col in ["MOLP target distance", "CCR efficiency", "Frontier gap", "Theta", "Biggest gap real", "Bottleneck gap"]:
             scenario_display[col] = pd.to_numeric(scenario_display[col], errors="coerce").map(lambda x: "—" if pd.isna(x) else f"{x:.3f}")
         st.dataframe(
             scenario_display[
                 [
                     "Scenario potential rank",
                     "Supplier",
+                    "MOLP target distance",
                     "Theta",
                     "CCR efficiency",
                     "Frontier gap",
-                    "Biggest improvement gap",
+                    "Bottleneck criterion",
                     "Biggest gap real",
                     "Biggest gap unit",
-                    "Biggest gap normalised",
+                    "Bottleneck gap",
                     "Top potential",
                 ]
             ],
@@ -219,7 +224,7 @@ with story_tab:
     if not scenario_summary.empty:
         st.markdown("#### Four-scenario shortlist")
         summary = scenario_summary.copy()
-        for col in ["Theta", "CCR efficiency", "Frontier gap"]:
+        for col in ["MOLP target distance", "Theta", "CCR efficiency", "Frontier gap", "Bottleneck gap"]:
             summary[col] = pd.to_numeric(summary[col], errors="coerce").map(lambda x: "—" if pd.isna(x) else f"{x:.3f}")
         st.dataframe(summary, width="stretch", hide_index=True)
 
@@ -320,8 +325,10 @@ with method_tab:
         - MCDA scores are imported as strategic attractiveness inputs.
         - DEA CCR efficiency is imported as the efficiency diagnosis and benchmark frontier.
         - MOLP provides scenario-specific supplier-development targets.
-        - Scenario potential ranks inefficient suppliers by theta, with CCR efficiency as tie-breaker.
-        - Biggest gaps are selected using normalised gap size, then reported in original units.
+        - Scenario potential ranks inefficient suppliers by unweighted normalised MOLP target distance d.
+        - Theta is the MOLP compromise-target quality indicator, not the development-potential metric.
+        - CCR efficiency is contextual DEA information, not the development-potential metric.
+        - Bottleneck gaps are selected using normalised gap size, then reported in original units.
         - Customer service is a strategic overlay, not a MOLP-optimised target in this app.
         - Peer weights are benchmark intensities, not probabilities and not order-allocation shares.
         - Purchase is commercial scale/context, not a direct improvement action.

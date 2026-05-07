@@ -70,10 +70,16 @@ def main() -> None:
     scenario_table = build_scenario_potential_table(master, targets, "balanced_improvement")
     if scenario_table.empty or "Scenario potential rank" not in scenario_table.columns:
         fail("scenario potential table is empty or incomplete")
+    required_potential = {"MOLP target distance", "Bottleneck gap", "Bottleneck criterion", "norm_price_gap", "norm_late_gap", "norm_error_gap", "norm_lead_gap", "norm_quality_gap"}
+    if missing_potential := required_potential.difference(scenario_table.columns):
+        fail(f"scenario potential table missing columns {sorted(missing_potential)}")
+    distances = pd_to_numeric(scenario_table["MOLP target distance"]).tolist()
+    if distances != sorted(distances):
+        fail("scenario potential table is not ranked by ascending MOLP target distance")
     scenario_summary = build_scenario_potential_summary(master, targets)
     if len(scenario_summary) != 4:
         fail(f"expected 4 scenario potential summary rows, found {len(scenario_summary)}")
-    required_summary = {"Top potential supplier", "Biggest improvement gap", "Managerial interpretation"}
+    required_summary = {"Top potential supplier", "MOLP target distance", "Bottleneck criterion", "Managerial interpretation"}
     if missing_summary := required_summary.difference(scenario_summary.columns):
         fail(f"scenario potential summary missing columns {sorted(missing_summary)}")
 

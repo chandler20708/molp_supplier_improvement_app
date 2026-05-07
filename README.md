@@ -96,8 +96,10 @@ Shows:
 
 Answers two stakeholder questions with precomputed MOLP outputs:
 
-1. **Baseline potential** — among CCR-inefficient suppliers, who is closest to the DEA efficient frontier.
-2. **Scenario potential** — for each predefined scenario, which inefficient suppliers have the lowest theta, with CCR efficiency used as tie-breaker, and what their biggest actionable improvement gap is.
+1. **Baseline potential** — under the Balanced scenario, which CCR-inefficient suppliers require the least proportional movement to their MOLP targets.
+2. **Scenario potential** — for each predefined scenario, which inefficient suppliers have the lowest unweighted normalised MOLP target distance, and which bottleneck criterion drives the development need.
+
+Supplier development potential is measured by the unweighted normalised distance between current performance and the scenario-specific MOLP target. Lower distance means less proportional improvement is required. Theta is retained as the MOLP compromise-target quality indicator, and CCR efficiency remains contextual DEA information; neither is used as the potential metric.
 
 The Scenario story tab has a scenario selector, a prominent management read-out, and potential/gap visuals. Selected-supplier charts and live custom MOLP remain secondary tabs rather than the main page content.
 

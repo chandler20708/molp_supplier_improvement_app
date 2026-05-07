@@ -10,6 +10,7 @@ so the CLI and sensitivity code can stay stable while the formulation evolves.
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 
 import gurobipy as gp
 import polars as pl
@@ -150,6 +151,14 @@ DEFAULT_SCENARIOS = {
         "lead": 0.15,
         "quality": 0.50,
     },
+}
+
+NORMALISED_GAP_KEYS = {
+    "price": "norm_price_gap",
+    "late": "norm_late_gap",
+    "error": "norm_error_gap",
+    "lead": "norm_lead_gap",
+    "quality": "norm_quality_gap",
 }
 
 
@@ -582,6 +591,13 @@ def solve_post_dea_for_supplier(
     )
 
 
+def _supplier_target_gap(current_value: float, target_value: float, criterion: CriterionSpec) -> float:
+    if abs(current_value) <= 1e-12:
+        return 0.0
+    raw_gap = target_value - current_value if criterion.is_desirable else current_value - target_value
+    return max(raw_gap / current_value, 0.0)
+
+
 def solutions_to_frames(solutions: list[PostDEASolution]) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     target_rows: list[dict[str, object]] = []
     peer_rows: list[dict[str, object]] = []
@@ -606,6 +622,23 @@ def solutions_to_frames(solutions: list[PostDEASolution]) -> tuple[pl.DataFrame,
                 if criterion.is_desirable
                 else current_value - target_value
             )
+
+            row[NORMALISED_GAP_KEYS[criterion.name]] = _supplier_target_gap(
+                current_value=current_value,
+                target_value=target_value,
+                criterion=criterion,
+            )
+
+        normalised_gaps = {
+            criterion.name: float(row[NORMALISED_GAP_KEYS[criterion.name]])
+            for criterion in CRITERIA
+        }
+        bottleneck_name = max(normalised_gaps, key=normalised_gaps.get)
+        row["molp_target_distance"] = math.sqrt(
+            sum(value ** 2 for value in normalised_gaps.values()) / len(normalised_gaps)
+        )
+        row["bottleneck_gap"] = normalised_gaps[bottleneck_name]
+        row["bottleneck_criterion"] = bottleneck_name
         row["total_real_improvement"] = sum(
             float(row[criterion.improvement_key])
             for criterion in CRITERIA
