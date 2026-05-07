@@ -4,7 +4,7 @@
 
 1. Portfolio Overview: diagnose the full supplier set. No scenario control is needed.
 2. Supplier Deep Dive: choose supplier and scenario. Focus on target interpretation and improvement gaps.
-3. Scenario Simulator: compare precomputed scenarios for CCR-inefficient development candidates by default, optionally include CCR-efficient benchmark suppliers, or run custom live MOLP weights only when the optional optimiser stack is available.
+3. Scenario Interpretation: answer cross-supplier stakeholder questions first, then offer selected-supplier and live MOLP drill-downs as secondary options.
 4. Sensitivity & Export: judge robustness first, then filter outputs and download tables.
 
 ## Live optimiser behaviour
@@ -40,5 +40,6 @@ Deploy this folder as the repository root and use `app.py` as the Streamlit entr
 - Treat customer service as a strategic overlay and purchase as commercial scale/context.
 - Do not describe theta as DEA efficiency or peer weights as probabilities/order shares.
 - CCR-efficient suppliers should be presented as benchmark/monitoring cases, not as suppliers needing the same target-improvement plan as inefficient suppliers.
+- Scenario interpretation should prioritise CCR-inefficient supplier-development needs, weighted normalised improvement burden, driving criterion, and benchmark-peer learning.
 - The Deep Dive improvement table uses `Styler.map` when available and falls back to `Styler.applymap` for older pandas versions.
 - Run `streamlit_mvp_app/scripts/smoke_test_app_data.py` after chart-data changes.

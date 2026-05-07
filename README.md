@@ -1,4 +1,4 @@
-# Supplier Improvement Cockpit — Streamlit MVP v6 Hotfix
+# Supplier Improvement Cockpit — Streamlit MVP v7 Scenario Interpretation
 
 This bundle implements the Streamlit MVP as a **native multipage app**.
 
@@ -92,12 +92,14 @@ Shows:
 - benchmark peer weights;
 - conservative supplier-development recommendations with primary action, secondary action, benchmark interpretation, customer-service caution, and robustness caveat.
 
-### 3. Scenario Simulator
+### 3. Scenario Interpretation
 
-Supports two modes:
+Answers two stakeholder questions with precomputed MOLP outputs:
 
-1. **Precomputed scenarios** — safe default using existing CSV outputs.
-2. **Live custom optimiser** — calls the original `risk_supplier_improvement` optimiser with custom criterion weights.
+1. **Base case** — under the Balanced scenario, what each CCR-inefficient supplier should improve and by how much.
+2. **Scenario interpretation** — for each predefined scenario, which inefficient supplier has the largest weighted normalised development burden, which criterion drives it, and what management should do next.
+
+Selected-supplier charts and live custom MOLP remain optional drill-down tools rather than the main page content.
 
 Live custom optimisation requires:
 
@@ -107,8 +109,7 @@ Live custom optimisation requires:
 - the included `risk_supplier_improvement/` package
 
 If Gurobi is unavailable, use precomputed scenarios for the demo. The deployment requirements intentionally omit `polars` and `gurobipy` so public Streamlit deployments do not expose a live mode that cannot solve.
-The app checks optional live dependencies before exposing sliders. If live mode is unavailable, the sidebar stays in precomputed mode.
-The simulator defaults to CCR-inefficient development candidates. Use the sidebar checkbox to include CCR-efficient benchmark suppliers.
+The app checks optional live dependencies before exposing live controls. If live mode is unavailable, the page stays with precomputed scenario interpretation.
 
 ### 4. Sensitivity & Export
 
@@ -138,3 +139,4 @@ The page now gives a plain-language robustness verdict before the export section
 - Hotfixes chart-data preparation so radar and selected-scenario charts render for CCR-inefficient suppliers.
 - Uses pandas-version-safe Styler mapping on the Supplier Deep Dive improvement table.
 - Adds `streamlit_mvp_app/scripts/smoke_test_app_data.py` for lightweight app-data and chart-data checks.
+- Refactors the Scenario page into a stakeholder-facing Scenario Interpretation page focused on cross-supplier tables and Toyota-style development language.

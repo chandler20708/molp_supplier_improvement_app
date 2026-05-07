@@ -17,6 +17,37 @@ SCENARIO_NAMES = {
     "custom_live": "Custom live",
 }
 
+SCENARIO_WEIGHTS = {
+    "balanced_improvement": {
+        "Price": 0.20,
+        "Late Delivery": 0.20,
+        "Shipping Error": 0.20,
+        "Lead Time": 0.20,
+        "Product Quality": 0.20,
+    },
+    "cost_led_development": {
+        "Price": 0.35,
+        "Late Delivery": 0.15,
+        "Shipping Error": 0.15,
+        "Lead Time": 0.10,
+        "Product Quality": 0.25,
+    },
+    "delivery_reliability_led": {
+        "Price": 0.10,
+        "Late Delivery": 0.30,
+        "Shipping Error": 0.25,
+        "Lead Time": 0.25,
+        "Product Quality": 0.10,
+    },
+    "product_quality_led": {
+        "Price": 0.10,
+        "Late Delivery": 0.15,
+        "Shipping Error": 0.10,
+        "Lead Time": 0.15,
+        "Product Quality": 0.50,
+    },
+}
+
 LOWER_IS_BETTER = {
     "Price": ("avg_unit_price", "target_price"),
     "Late Delivery": ("late_delivery_pct", "target_late_pct"),
@@ -179,6 +210,120 @@ def build_improvement_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, s
             "Priority": priority,
             "Direction": r["Direction"],
         })
+    return pd.DataFrame(rows)
+
+
+def inefficient_suppliers(master_df: pd.DataFrame) -> list[str]:
+    if master_df is None or master_df.empty or "ccr_efficiency" not in master_df.columns:
+        return []
+    rows = master_df[pd.to_numeric(master_df["ccr_efficiency"], errors="coerce") < 0.999]
+    return sorted(rows["supplier"].dropna().astype(str).unique().tolist())
+
+
+def _dominant_peer(peer_weights_df: pd.DataFrame, supplier: str, scenario: str) -> str:
+    if peer_weights_df is None or peer_weights_df.empty:
+        return "No peer weights"
+    peers = peer_weights_df[(peer_weights_df["supplier"] == supplier) & (peer_weights_df["scenario"] == scenario)].copy()
+    if peers.empty:
+        return "No peer weights"
+    peers = peers.sort_values("lambda_value", ascending=False)
+    top = peers.iloc[0]
+    return f"{top['peer_supplier']} ({float(top['lambda_value']):.2f})"
+
+
+def _top_priority_from_improvement(improvement: pd.DataFrame, scenario: str) -> tuple[str, float]:
+    if improvement.empty:
+        return "No target movement", 0.0
+    weights = SCENARIO_WEIGHTS.get(scenario, {})
+    rows = improvement[improvement["Metric"].isin(weights)].copy()
+    if rows.empty:
+        return "No target movement", 0.0
+    rows["Weighted room"] = rows["Metric"].map(weights).fillna(0.0) * pd.to_numeric(rows["Normalised room"], errors="coerce").clip(lower=0).fillna(0.0)
+    top = rows.sort_values("Weighted room", ascending=False).iloc[0]
+    if float(top["Weighted room"]) <= 0:
+        return "Monitor current capability", 0.0
+    return str(top["Metric"]), float(top["Weighted room"])
+
+
+def build_balanced_base_case_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, peer_weights_df: pd.DataFrame) -> pd.DataFrame:
+    scenario = "balanced_improvement"
+    rows: list[dict[str, object]] = []
+    for supplier in inefficient_suppliers(master_df):
+        target = get_selected_target(targets_df, supplier, scenario)
+        if target is None:
+            continue
+        improvement = build_improvement_table(master_df, targets_df, supplier, scenario)
+        top_priority, weighted_room = _top_priority_from_improvement(improvement, scenario)
+        rows.append(
+            {
+                "Supplier": supplier,
+                "Development need": top_priority,
+                "Price improvement": target.get("price_improvement"),
+                "Late-delivery improvement": target.get("late_improvement"),
+                "Shipping-error improvement": target.get("error_improvement"),
+                "Lead-time improvement": target.get("lead_improvement"),
+                "Product-quality gain": target.get("quality_gain"),
+                "Weighted normalised burden": weighted_room,
+                "Theta": target.get("theta"),
+                "Leading benchmark peer": _dominant_peer(peer_weights_df, supplier, scenario),
+            }
+        )
+    return pd.DataFrame(rows).sort_values("Weighted normalised burden", ascending=False).reset_index(drop=True)
+
+
+def _managerial_interpretation(supplier: str, scenario: str, criterion: str) -> str:
+    scenario_name = SCENARIO_NAMES.get(scenario, scenario)
+    if criterion == "Price":
+        priority = "cost competitiveness pathway"
+    elif criterion in {"Late Delivery", "Shipping Error", "Lead Time"}:
+        priority = "delivery-reliability capability gap"
+    elif criterion == "Product Quality":
+        priority = "product-quality capability gap"
+    else:
+        priority = "broad capability gap"
+    return (
+        f"Under the {scenario_name} scenario, Supplier {supplier} has the largest development burden; "
+        f"start with the {priority} and use benchmark peers for process learning."
+    )
+
+
+def build_scenario_interpretation_table(master_df: pd.DataFrame, targets_df: pd.DataFrame, peer_weights_df: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    suppliers = inefficient_suppliers(master_df)
+    for scenario in SCENARIO_DISPLAY_ORDER:
+        supplier_rows: list[dict[str, object]] = []
+        for supplier in suppliers:
+            improvement = build_improvement_table(master_df, targets_df, supplier, scenario)
+            if improvement.empty:
+                continue
+            weights = SCENARIO_WEIGHTS.get(scenario, {})
+            criteria = improvement[improvement["Metric"].isin(weights)].copy()
+            criteria["Weighted room"] = criteria["Metric"].map(weights).fillna(0.0) * pd.to_numeric(criteria["Normalised room"], errors="coerce").clip(lower=0).fillna(0.0)
+            total_burden = float(criteria["Weighted room"].sum())
+            top = criteria.sort_values("Weighted room", ascending=False).iloc[0] if not criteria.empty else None
+            supplier_rows.append(
+                {
+                    "supplier": supplier,
+                    "total_burden": total_burden,
+                    "driving_criterion": str(top["Metric"]) if top is not None else "No target movement",
+                    "criterion_burden": float(top["Weighted room"]) if top is not None else 0.0,
+                    "peer": _dominant_peer(peer_weights_df, supplier, scenario),
+                }
+            )
+        if not supplier_rows:
+            continue
+        selected = pd.DataFrame(supplier_rows).sort_values("total_burden", ascending=False).iloc[0]
+        rows.append(
+            {
+                "Scenario": SCENARIO_NAMES.get(scenario, scenario),
+                "Supplier with largest burden": selected["supplier"],
+                "Weighted normalised improvement burden": selected["total_burden"],
+                "Driving criterion": selected["driving_criterion"],
+                "Driving-criterion contribution": selected["criterion_burden"],
+                "Leading benchmark peer": selected["peer"],
+                "Managerial interpretation": _managerial_interpretation(str(selected["supplier"]), scenario, str(selected["driving_criterion"])),
+            }
+        )
     return pd.DataFrame(rows)
 
 

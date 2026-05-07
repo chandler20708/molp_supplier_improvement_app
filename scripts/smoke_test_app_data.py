@@ -9,7 +9,12 @@ PROJECT_ROOT = APP_DIR
 sys.path.insert(0, str(APP_DIR))
 
 from utils.load_data import load_app_data  # noqa: E402
-from utils.transforms import build_current_target_long, build_current_target_wide  # noqa: E402
+from utils.transforms import (  # noqa: E402
+    build_balanced_base_case_table,
+    build_current_target_long,
+    build_current_target_wide,
+    build_scenario_interpretation_table,
+)
 
 
 def fail(message: str) -> None:
@@ -58,9 +63,20 @@ def main() -> None:
     if not efficient:
         fail("no CCR-efficient benchmark suppliers found")
 
+    peers = app_data["outputs"].get("molp_peer_weights")
+    base_case = build_balanced_base_case_table(master, targets, peers)
+    if base_case.empty or "Development need" not in base_case.columns:
+        fail("balanced base-case interpretation table is empty or incomplete")
+    scenario_summary = build_scenario_interpretation_table(master, targets, peers)
+    if len(scenario_summary) != 4:
+        fail(f"expected 4 scenario interpretation rows, found {len(scenario_summary)}")
+    required_summary = {"Supplier with largest burden", "Driving criterion", "Managerial interpretation"}
+    if missing_summary := required_summary.difference(scenario_summary.columns):
+        fail(f"scenario interpretation table missing columns {sorted(missing_summary)}")
+
     print(
         "PASS: app data has 12 suppliers, required target columns, non-empty inefficient-supplier targets, "
-        "non-empty radar data, and non-empty selected-scenario target chart data."
+        "non-empty radar data, non-empty selected-scenario target chart data, and scenario interpretation tables."
     )
 
 
