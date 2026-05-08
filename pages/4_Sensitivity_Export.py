@@ -5,7 +5,7 @@ import streamlit as st
 
 from utils.app_state import require_data, scenario_selector, supplier_selector
 from utils.charts import parameter_impact_bar, target_range_box
-from utils.formatting import apply_global_style, render_download_button, scenario_label
+from utils.formatting import apply_global_style, render_download_button, render_plotly_chart, scenario_label
 from utils.transforms import filter_by_supplier_scenario
 
 st.set_page_config(page_title="Sensitivity & Export", page_icon="📤", layout="wide")
@@ -100,10 +100,10 @@ else:
 left, right = st.columns([1.05, 0.95], gap="large")
 with left:
     st.subheader("Target range across parameter runs")
-    st.plotly_chart(target_range_box(param_runs_df, supplier, scenario), width="stretch")
+    render_plotly_chart(target_range_box(param_runs_df, supplier, scenario), key=f"target_range_{supplier}_{scenario}")
 with right:
     st.subheader("Parameter impact on theta")
-    st.plotly_chart(parameter_impact_bar(param_runs_df, supplier, scenario), width="stretch")
+    render_plotly_chart(parameter_impact_bar(param_runs_df, supplier, scenario), key=f"parameter_impact_{supplier}_{scenario}")
 
 st.subheader("Peer stability")
 if peer_sens_df.empty:

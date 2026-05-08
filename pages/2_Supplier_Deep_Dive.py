@@ -5,7 +5,7 @@ import streamlit as st
 
 from utils.app_state import require_data, scenario_selector, supplier_selector
 from utils.charts import current_vs_target_radar, peer_weights_bar
-from utils.formatting import apply_global_style, format_money, format_number, format_pct, scenario_label
+from utils.formatting import apply_global_style, format_money, format_number, format_pct, render_plotly_chart, scenario_label
 from utils.recommendations import generate_recommendation_summary
 from utils.transforms import build_improvement_table, get_selected_target
 
@@ -19,7 +19,7 @@ targets_df = outputs.get("molp_targets", pd.DataFrame())
 peer_weights_df = outputs.get("molp_peer_weights", pd.DataFrame())
 
 st.sidebar.header("Supplier controls")
-supplier = supplier_selector(master_df)
+supplier = supplier_selector(master_df, default="C")
 scenario = scenario_selector()
 st.sidebar.caption("This page uses both controls: supplier changes the diagnosis; scenario changes the MOLP target.")
 
@@ -44,7 +44,7 @@ st.markdown(
 )
 
 h1, h2, h3, h4 = st.columns([1.3, 1.1, 1.1, 1.1])
-h1.metric("Portfolio status", current.get("portfolio_status", "—"))
+h1.metric("Recommendation tier", current.get("recommendation_tier", "—"))
 h2.metric("CCR efficiency", format_number(current.get("ccr_efficiency"), 3))
 h3.metric("Product quality", format_number(current.get("product_quality_score"), 3))
 h4.metric("Customer service", format_number(current.get("customer_service_score"), 3))
@@ -54,6 +54,15 @@ st.markdown(
     <div class="action-box">
     <b>{recommendation['primary_action']}</b><br>
     {recommendation['secondary_action']}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.markdown(
+    f"""
+    <div class="decision-box">
+    <b>Management interpretation:</b> {recommendation['management_interpretation']}<br>
+    <b>Analytical status:</b> {current.get("portfolio_status", "—")}
     </div>
     """,
     unsafe_allow_html=True,
@@ -105,7 +114,7 @@ with left:
     if radar is None:
         st.info("No radar chart can be drawn for the selected supplier/scenario because the required current-target data is unavailable.")
     else:
-        st.plotly_chart(radar, width="stretch")
+        render_plotly_chart(radar, key=f"radar_{supplier}_{scenario}")
     st.caption("Radar values are normalised to 0-100. Higher is always better, even for price, late delivery, shipping errors, and lead time.")
     st.caption("Customer service is a strategic overlay in this app. It is shown for relationship interpretation, not as a MOLP-optimised target.")
 
@@ -144,7 +153,7 @@ with right:
 peer_col, rec_col = st.columns([0.95, 1.05], gap="large")
 with peer_col:
     st.subheader("Benchmark peer weights")
-    st.plotly_chart(peer_weights_bar(peer_weights_df, supplier, scenario), width="stretch")
+    render_plotly_chart(peer_weights_bar(peer_weights_df, supplier, scenario), key=f"peers_{supplier}_{scenario}")
     peers = peer_weights_df[(peer_weights_df["supplier"] == supplier) & (peer_weights_df["scenario"] == scenario)].copy() if not peer_weights_df.empty else pd.DataFrame()
     if not peers.empty:
         peers = peers.sort_values("lambda_value", ascending=False).rename(columns={"peer_supplier": "Peer", "lambda_value": "Weight"})

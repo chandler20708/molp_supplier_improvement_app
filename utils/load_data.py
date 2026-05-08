@@ -6,6 +6,8 @@ from typing import Dict, Iterable, Optional
 
 import pandas as pd
 
+from .recommendation_tiers import add_recommendation_columns
+
 
 SCENARIO_LABELS = {
     "Balanced": "balanced_improvement",
@@ -243,7 +245,8 @@ def build_supplier_master(inputs: Dict[str, pd.DataFrame], outputs: Dict[str, pd
         ),
         axis=1,
     )
-    return master.sort_values("supplier").reset_index(drop=True)
+    master = add_recommendation_columns(master)
+    return master.sort_values(["supplier_recommendation_order", "supplier"]).reset_index(drop=True)
 
 
 def load_app_data(root_dir: str | Path = ".", output_subdir: str = "outputs/team_ccr") -> dict:

@@ -19,6 +19,8 @@ streamlit run app.py
 
 Streamlit will show the native page navigation in the left sidebar.
 
+If a page fails with a missing package such as `plotly`, rerun `pip install -r requirements.txt` in the same Python environment used to launch Streamlit.
+
 ## 2. Expected folder structure
 
 ```text

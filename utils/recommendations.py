@@ -2,26 +2,46 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .recommendation_tiers import supplier_management_note
+
+
+ACTION_TEXT = {
+    "late": "agree a delivery-reliability improvement plan focused on late delivery.",
+    "error": "reduce shipping errors through process checks and dispatch controls.",
+    "lead": "shorten lead time to reduce stock-availability risk.",
+    "price": "renegotiate the unit-price pathway while protecting supplier capability.",
+    "quality": "close the product-quality capability gap with a joint improvement plan.",
+}
+
+
+def _gap_ratio(current_value, improvement_value) -> float:
+    if pd.isna(current_value) or pd.isna(improvement_value):
+        return 0.0
+    current = float(current_value)
+    improvement = float(improvement_value)
+    if abs(current) <= 1e-12:
+        return 0.0
+    return max(0.0, improvement / current)
+
 
 def _top_improvement_actions(current: pd.Series, target: pd.Series | None) -> list[tuple[str, str]]:
-    actions: list[tuple[str, str]] = []
-    if target is not None:
-        checks = [
-            ("target_price", "avg_unit_price", "cost competitiveness", "renegotiate the unit-price pathway while protecting supplier capability."),
-            ("target_late_pct", "late_delivery_pct", "delivery reliability", "agree a delivery-reliability improvement plan."),
-            ("target_error_pct", "shipping_error_pct", "shipping accuracy", "reduce shipping errors through process checks and dispatch controls."),
-            ("target_lead_days", "lead_time_days", "lead-time responsiveness", "shorten lead time to reduce stock-availability risk."),
-        ]
-        for target_col, current_col, label, text in checks:
-            cur = current.get(current_col)
-            tar = target.get(target_col)
-            if pd.notna(cur) and pd.notna(tar) and float(tar) < float(cur) - 1e-9:
-                actions.append((label, text))
-        cur_q = current.get("product_quality_score")
-        tar_q = target.get("target_quality_score")
-        if pd.notna(cur_q) and pd.notna(tar_q) and float(tar_q) > float(cur_q) + 1e-9:
-            actions.append(("product quality", "close the product-quality capability gap with a joint improvement plan."))
-    return actions
+    if target is None:
+        return []
+
+    checks = [
+        ("late", "delivery reliability", current.get("late_delivery_pct"), target.get("late_improvement")),
+        ("error", "shipping accuracy", current.get("shipping_error_pct"), target.get("error_improvement")),
+        ("lead", "lead-time responsiveness", current.get("lead_time_days"), target.get("lead_improvement")),
+        ("price", "cost competitiveness", current.get("avg_unit_price"), target.get("price_improvement")),
+        ("quality", "product quality", current.get("product_quality_score"), target.get("quality_gain")),
+    ]
+    ranked = [
+        (label, ACTION_TEXT[key], _gap_ratio(current_value, improvement_value))
+        for key, label, current_value, improvement_value in checks
+    ]
+    ranked = [item for item in ranked if item[2] > 1e-9]
+    ranked.sort(key=lambda item: item[2], reverse=True)
+    return [(label, text) for label, text, _score in ranked]
 
 
 def _benchmark_interpretation(peer_weights_df: pd.DataFrame, supplier: str, scenario: str) -> str:
@@ -69,10 +89,12 @@ def generate_recommendation_summary(
         caution = "Customer-service overlay caution: imported service attractiveness is weak, so treat the MOLP target as operational guidance rather than a full relationship endorsement."
 
     purchase_note = "Commercial scale: purchase is preserved as a scale/context condition; it is not a direct supplier-controlled improvement instruction."
+    management_note = supplier_management_note(supplier)
     caveat = robustness_caveat or "Robustness caveat: check Sensitivity & Export before presenting the recommendation as stable."
     return {
         "primary_action": primary,
         "secondary_action": secondary,
+        "management_interpretation": management_note,
         "benchmark_interpretation": _benchmark_interpretation(peer_weights_df, supplier, scenario),
         "customer_service_caution": caution,
         "purchase_note": purchase_note,

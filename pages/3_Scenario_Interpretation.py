@@ -6,7 +6,7 @@ import streamlit as st
 
 from utils.app_state import require_data
 from utils.charts import current_vs_target_radar, scenario_target_bar
-from utils.formatting import apply_global_style, scenario_label
+from utils.formatting import apply_global_style, render_plotly_chart, scenario_label
 from utils.load_data import SCENARIO_LABELS
 from utils.optimizer import check_live_optimizer_available, normalise_weights, run_live_molp
 from utils.transforms import (
@@ -60,6 +60,11 @@ if targets_df.empty:
 
 baseline = build_baseline_potential_table(master_df, targets_df)
 scenario_summary = build_scenario_potential_summary(master_df, targets_df)
+tier_context = master_df[["supplier", "recommendation_tier", "management_note"]].rename(
+    columns={"supplier": "Supplier", "recommendation_tier": "Recommendation tier", "management_note": "Management note"}
+)
+if not baseline.empty:
+    baseline = baseline.merge(tier_context, on="Supplier", how="left")
 
 st.subheader("Baseline Development Potential")
 st.markdown(
@@ -90,12 +95,25 @@ else:
     frontier_chart.update_layout(height=360, margin=dict(l=10, r=25, t=45, b=10), xaxis_title="Unweighted normalised MOLP target distance", yaxis_title="")
     left, right = st.columns([1.0, 1.1], gap="large")
     with left:
-        st.plotly_chart(frontier_chart, width="stretch")
+        render_plotly_chart(frontier_chart, key="baseline_potential")
     with right:
         display = baseline.copy()
         for col in ["MOLP target distance", "Theta", "CCR efficiency", "Frontier gap", "Bottleneck gap", "Biggest gap real", "Product quality", "Customer service overlay"]:
             display[col] = pd.to_numeric(display[col], errors="coerce").map(lambda x: "—" if pd.isna(x) else f"{x:.3f}")
-        st.dataframe(display, width="stretch", hide_index=True)
+        preferred_cols = [
+            "Baseline potential rank",
+            "Supplier",
+            "Recommendation tier",
+            "MOLP target distance",
+            "Theta",
+            "CCR efficiency",
+            "Bottleneck criterion",
+            "Biggest gap real",
+            "Biggest gap unit",
+            "Portfolio status",
+            "Management note",
+        ]
+        st.dataframe(display[[c for c in preferred_cols if c in display.columns]], width="stretch", hide_index=True)
 
 st.subheader("Scenario-Specific Potential")
 st.markdown(
@@ -117,6 +135,8 @@ with story_tab:
     selected_scenario = SCENARIO_LABELS[scenario_name]
     selected_label = scenario_label(selected_scenario)
     potential_df = build_scenario_potential_table(master_df, targets_df, selected_scenario)
+    if not potential_df.empty:
+        potential_df = potential_df.merge(tier_context, on="Supplier", how="left")
 
     if potential_df.empty:
         st.info("No scenario-potential table could be built for this scenario.")
@@ -194,9 +214,9 @@ with story_tab:
 
         left, right = st.columns([1.05, 0.95], gap="large")
         with left:
-            st.plotly_chart(theta_chart, width="stretch")
+            render_plotly_chart(theta_chart, key=f"theta_{selected_scenario}")
         with right:
-            st.plotly_chart(gap_chart, width="stretch")
+            render_plotly_chart(gap_chart, key=f"gap_{selected_scenario}")
 
         scenario_display = potential_df.copy()
         for col in ["MOLP target distance", "CCR efficiency", "Frontier gap", "Theta", "Biggest gap real", "Bottleneck gap"]:
@@ -206,6 +226,7 @@ with story_tab:
                 [
                     "Scenario potential rank",
                     "Supplier",
+                    "Recommendation tier",
                     "MOLP target distance",
                     "Theta",
                     "CCR efficiency",
@@ -215,6 +236,7 @@ with story_tab:
                     "Biggest gap unit",
                     "Bottleneck gap",
                     "Top potential",
+                    "Management note",
                 ]
             ],
             width="stretch",
@@ -276,13 +298,13 @@ with drill_tab:
             if target_chart is None:
                 st.info("No selected-scenario target chart can be drawn because current-target data is unavailable.")
             else:
-                st.plotly_chart(target_chart, width="stretch")
+                render_plotly_chart(target_chart, key=f"target_{supplier}_{scenario}")
         with chart_right:
             radar = current_vs_target_radar(master_df, targets_df, supplier, scenario)
             if radar is None:
                 st.info("No radar can be drawn because current-target data is unavailable.")
             else:
-                st.plotly_chart(radar, width="stretch")
+                render_plotly_chart(radar, key=f"drill_radar_{supplier}_{scenario}")
 
 with live_tab:
     if not live_available:

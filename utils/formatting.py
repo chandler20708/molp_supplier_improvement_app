@@ -4,6 +4,9 @@ import pandas as pd
 import streamlit as st
 
 
+PLOTLY_CONFIG = {"displaylogo": False, "responsive": True}
+
+
 def apply_global_style() -> None:
     st.markdown(
         """
@@ -95,6 +98,7 @@ def apply_global_style() -> None:
         .badge-red {background: #fee2e2; color: #991b1b;}
         .badge-blue {background: #dbeafe; color: #1e40af;}
         .badge-grey {background: #f1f5f9; color: #475569;}
+        .badge-purple {background: #ede9fe; color: #5b21b6;}
         .muted-box {
             background: #fafafa;
             border: 1px solid #e5e7eb;
@@ -164,3 +168,7 @@ def scenario_label(scenario: str) -> str:
         "custom_live": "Custom live",
     }
     return mapping.get(scenario, str(scenario).replace("_", " ").title())
+
+
+def render_plotly_chart(fig, *, key: str | None = None) -> None:
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key=key)

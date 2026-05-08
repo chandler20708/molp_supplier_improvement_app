@@ -17,7 +17,7 @@ def portfolio_matrix_3d(master_df: pd.DataFrame) -> go.Figure:
         y="product_quality_score",
         z="customer_service_score",
         text="supplier",
-        color="portfolio_status",
+        color="recommendation_tier" if "recommendation_tier" in df.columns else "portfolio_status",
         hover_data={
             "supplier": True,
             "ccr_efficiency": ":.3f",
@@ -26,9 +26,15 @@ def portfolio_matrix_3d(master_df: pd.DataFrame) -> go.Figure:
             "avg_unit_price": ":.2f" if "avg_unit_price" in df.columns else False,
             "late_delivery_pct": ":.1f" if "late_delivery_pct" in df.columns else False,
             "portfolio_status": True,
+            "recommendation_tier": True if "recommendation_tier" in df.columns else False,
         },
     )
     palette = {
+        "Preferred strategic supplier": "#15803d",
+        "Operational benchmark": "#64748b",
+        "Primary development candidate": "#2563eb",
+        "Conditional development candidate": "#d97706",
+        "Lower-priority supplier": "#dc2626",
         "Strategic partner": "#15803d",
         "Development candidate": "#d97706",
         "Selective development": "#f59e0b",
@@ -68,7 +74,7 @@ def portfolio_matrix_3d(master_df: pd.DataFrame) -> go.Figure:
     fig.update_layout(
         height=590,
         margin=dict(l=0, r=0, t=30, b=0),
-        legend_title="Portfolio status",
+        legend_title="Recommendation tier" if "recommendation_tier" in df.columns else "Portfolio status",
         scene=dict(
             xaxis=dict(title="DEA CCR efficiency", range=[0, 1.05], showbackground=True, backgroundcolor="rgb(248,248,248)", zeroline=True),
             yaxis=dict(title="Product quality score", range=[0, 1.05], showbackground=True, backgroundcolor="rgb(248,248,248)", zeroline=True),
