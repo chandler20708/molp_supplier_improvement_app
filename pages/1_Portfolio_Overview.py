@@ -14,23 +14,26 @@ master_df = app_data["master"]
 
 st.sidebar.header("Portfolio controls")
 dea_filter = st.sidebar.selectbox("DEA status", ["All", "CCR-efficient", "Needs development"])
-tier_filter = st.sidebar.multiselect(
-    "Recommendation tier",
+tier_options = (
     master_df[["recommendation_order", "recommendation_tier"]]
     .drop_duplicates()
     .sort_values("recommendation_order")["recommendation_tier"]
-    .tolist(),
-    default=master_df[["recommendation_order", "recommendation_tier"]]
-    .drop_duplicates()
-    .sort_values("recommendation_order")["recommendation_tier"]
-    .tolist(),
+    .dropna()
+    .tolist()
+    if {"recommendation_order", "recommendation_tier"}.issubset(master_df.columns)
+    else []
+)
+tier_filter = st.sidebar.multiselect(
+    "Recommendation tier",
+    tier_options,
+    default=tier_options,
 )
 st.sidebar.caption("This page is diagnostic. It does not need a scenario selector because no MOLP target is shown here.")
 
 view_df = master_df.copy()
 if dea_filter != "All":
     view_df = view_df[view_df["dea_status"] == dea_filter]
-if tier_filter:
+if tier_filter and "recommendation_tier" in view_df.columns:
     view_df = view_df[view_df["recommendation_tier"].isin(tier_filter)]
 
 st.title("1. Portfolio Overview")

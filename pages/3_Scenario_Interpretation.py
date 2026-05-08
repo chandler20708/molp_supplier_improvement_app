@@ -60,9 +60,10 @@ if targets_df.empty:
 
 baseline = build_baseline_potential_table(master_df, targets_df)
 scenario_summary = build_scenario_potential_summary(master_df, targets_df)
-tier_context = master_df[["supplier", "recommendation_tier", "management_note"]].rename(
+tier_cols = [c for c in ["supplier", "recommendation_tier", "management_note"] if c in master_df.columns]
+tier_context = master_df[tier_cols].rename(
     columns={"supplier": "Supplier", "recommendation_tier": "Recommendation tier", "management_note": "Management note"}
-)
+) if "supplier" in tier_cols else pd.DataFrame(columns=["Supplier"])
 if not baseline.empty:
     baseline = baseline.merge(tier_context, on="Supplier", how="left")
 

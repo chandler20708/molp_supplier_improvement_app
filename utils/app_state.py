@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from .load_data import load_app_data, SCENARIO_LABELS
+from .recommendation_tiers import add_recommendation_columns
 
 ROOT_DIR = "."
 OUTPUT_SUBDIR = "outputs/team_ccr"
@@ -22,6 +23,21 @@ def require_data() -> dict:
             "No supplier data could be loaded. Run the app from the project root, or place the required CSV files beside app.py for testing."
         )
         st.stop()
+    app_data = dict(app_data)
+    master = app_data["master"].copy()
+    if "supplier" in master.columns:
+        missing_recommendation_cols = {
+            "recommendation_tier",
+            "management_note",
+            "recommended_action",
+            "recommendation_order",
+            "supplier_recommendation_order",
+        }.difference(master.columns)
+        if missing_recommendation_cols:
+            master = add_recommendation_columns(master)
+        if "supplier_recommendation_order" in master.columns:
+            master = master.sort_values(["supplier_recommendation_order", "supplier"]).reset_index(drop=True)
+        app_data["master"] = master
     diagnostics = app_data.get("diagnostics", [])
     if diagnostics:
         with st.expander("Data validation messages", expanded=True):
