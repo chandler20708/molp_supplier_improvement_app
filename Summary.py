@@ -22,9 +22,11 @@ with title_col:
 with context_col:
     with st.popover("Problem context"):
         st.markdown(
-            "The decision problem is to identify which suppliers should be preferred, "
-            "benchmarked, developed or deprioritised by combining MCDA quality/service "
-            "scores, DEA efficiency diagnosis and MOLP improvement targets."
+            "The case compares 12 suppliers to decide which should be used as preferred "
+            "sourcing partners and which should receive supplier-development support. "
+            "The dashboard combines MCDA quality/service scores, DEA efficiency gaps "
+            "and MOLP target improvements to separate preferred suppliers, operational "
+            "benchmarks, development priorities and lower-priority suppliers."
         )
 st.caption("Stakeholder-facing recommendation from MCDA quality/service evidence, DEA efficiency diagnosis and MOLP development potential.")
 
