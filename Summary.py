@@ -20,13 +20,26 @@ title_col, context_col = st.columns([0.76, 0.24], vertical_alignment="center")
 with title_col:
     st.title("Supplier Decision Summary")
 with context_col:
-    with st.popover("Problem context"):
+    with st.popover("Problem context & notation"):
         st.markdown(
             "The case compares 12 suppliers to decide which should be used as preferred "
             "sourcing partners and which should receive supplier-development support. "
             "The dashboard combines MCDA quality/service scores, DEA efficiency gaps "
             "and MOLP target improvements to separate preferred suppliers, operational "
             "benchmarks, development priorities and lower-priority suppliers."
+        )
+        st.markdown(
+            """
+            **Notation used in the app**
+
+            - **MCDA:** upstream product-quality and customer-service scoring evidence.
+            - **DEA / CCR:** efficiency diagnosis; CCR-efficient suppliers sit on the operational frontier.
+            - **MOLP:** post-DEA target-setting model for feasible supplier improvement.
+            - **PQ / CS:** product quality and customer service.
+            - **Theta:** MOLP compromise-target score; lower is better, but it is not DEA efficiency.
+            - **d:** normalised MOLP target distance; lower means less proportional improvement is needed.
+            - **Peer / lambda weight:** contribution of a benchmark supplier to the composite frontier target, not an order share or probability.
+            """
         )
 st.caption("Stakeholder-facing recommendation from MCDA quality/service evidence, DEA efficiency diagnosis and MOLP development potential.")
 
