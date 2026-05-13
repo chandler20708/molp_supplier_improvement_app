@@ -16,7 +16,16 @@ apply_global_style()
 app_data = require_data()
 master_df = app_data["master"]
 
-st.title("Supplier Decision Summary")
+title_col, context_col = st.columns([0.76, 0.24], vertical_alignment="center")
+with title_col:
+    st.title("Supplier Decision Summary")
+with context_col:
+    with st.popover("Problem context"):
+        st.markdown(
+            "The decision problem is to identify which suppliers should be preferred, "
+            "benchmarked, developed or deprioritised by combining MCDA quality/service "
+            "scores, DEA efficiency diagnosis and MOLP improvement targets."
+        )
 st.caption("Stakeholder-facing recommendation from MCDA quality/service evidence, DEA efficiency diagnosis and MOLP development potential.")
 
 st.markdown(
